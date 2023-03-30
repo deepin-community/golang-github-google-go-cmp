@@ -6,7 +6,7 @@ package cmp_test
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -43,7 +43,7 @@ var update = flag.Bool("update", false, "update golden test files")
 const goldenHeaderPrefix = "<<< "
 const goldenFooterPrefix = ">>> "
 
-/// mustParseGolden parses a file as a set of key-value pairs.
+// mustParseGolden parses a file as a set of key-value pairs.
 //
 // The syntax is simple and looks something like:
 //
@@ -104,6 +104,7 @@ func mustFormatGolden(path string, in []struct{ Name, Data string }) {
 
 var now = time.Date(2009, time.November, 10, 23, 00, 00, 00, time.UTC)
 
+// TODO(≥go1.18): Define a generic function that boxes a value on the heap.
 func newInt(n int) *int { return &n }
 
 type Stringer string
@@ -476,8 +477,8 @@ func comparerTests() []test {
 		reason:    "comparer for fmt.Stringer used to compare differing types with different strings",
 	}, {
 		label:     label + "/DifferingHash",
-		x:         md5.Sum([]byte{'a'}),
-		y:         md5.Sum([]byte{'b'}),
+		x:         sha256.Sum256([]byte{'a'}),
+		y:         sha256.Sum256([]byte{'b'}),
 		wantEqual: false,
 		reason:    "hash differs",
 	}, {
@@ -515,7 +516,7 @@ func comparerTests() []test {
 		wantPanic: "non-deterministic or non-symmetric function detected",
 		reason:    "non-deterministic filter",
 	}, {
-		label: label + "/AssymetricComparer",
+		label: label + "/AsymmetricComparer",
 		x:     []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		y:     []int{10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
 		opts: []cmp.Option{
@@ -657,8 +658,8 @@ func comparerTests() []test {
 		reason:    "all zero map entries are ignored (even if missing)",
 	}, {
 		label:     label + "/PanicUnexportedNamed",
-		x:         namedWithUnexported{},
-		y:         namedWithUnexported{},
+		x:         namedWithUnexported{unexported: "x"},
+		y:         namedWithUnexported{unexported: "y"},
 		wantPanic: strconv.Quote(reflect.TypeOf(namedWithUnexported{}).PkgPath()) + ".namedWithUnexported",
 		reason:    "panic on named struct type with unexported field",
 	}, {
@@ -885,6 +886,7 @@ func reporterTests() []test {
 			FloatsB []MyFloat
 			FloatsC MyFloats
 		}
+		PointerString *string
 	)
 
 	return []test{{
@@ -1279,17 +1281,18 @@ using the AllowUnexported option.`, "\n"),
 	}, {
 		label: label + "/LargeMapKey",
 		x: map[*[]byte]int{func() *[]byte {
-			b := make([]byte, 1<<20, 1<<20)
+			b := make([]byte, 1<<20)
 			return &b
 		}(): 0},
 		y: map[*[]byte]int{func() *[]byte {
-			b := make([]byte, 1<<20, 1<<20)
+			b := make([]byte, 1<<20)
 			return &b
 		}(): 0},
 		reason: "printing map keys should have some verbosity limit imposed",
 	}, {
-		label:  label + "/LargeStringInInterface",
-		x:      struct{ X interface{} }{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet pretium ligula, at gravida quam. Integer iaculis, velit at sagittis ultricies, lacus metus scelerisque turpis, ornare feugiat nulla nisl ac erat. Maecenas elementum ultricies libero, sed efficitur lacus molestie non. Nulla ac pretium dolor. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Pellentesque mi lorem, consectetur id porttitor id, sollicitudin sit amet enim. Duis eu dolor magna. Nunc ut augue turpis."},
+		label: label + "/LargeStringInInterface",
+		x:     struct{ X interface{} }{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet pretium ligula, at gravida quam. Integer iaculis, velit at sagittis ultricies, lacus metus scelerisque turpis, ornare feugiat nulla nisl ac erat. Maecenas elementum ultricies libero, sed efficitur lacus molestie non. Nulla ac pretium dolor. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Pellentesque mi lorem, consectetur id porttitor id, sollicitudin sit amet enim. Duis eu dolor magna. Nunc ut augue turpis."},
+
 		y:      struct{ X interface{} }{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet pretium ligula, at gravida quam. Integer iaculis, velit at sagittis ultricies, lacus metus scelerisque turpis, ornare feugiat nulla nisl ac erat. Maecenas elementum ultricies libero, sed efficitur lacus molestie non. Nulla ac pretium dolor. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Pellentesque mi lorem, consectetur id porttitor id, sollicitudin sit amet enim. Duis eu dolor magna. Nunc ut augue turpis,"},
 		reason: "strings within an interface should benefit from specialized diffing",
 	}, {
@@ -1317,6 +1320,106 @@ using the AllowUnexported option.`, "\n"),
 		x:      "d5c14bdf6bac81c27afc5429500ed750\n25483503b557c606dad4f144d27ae10b\n90bdbcdbb6ea7156068e3dcfb7459244\n978f480a6e3cced51e297fbff9a506b7\n",
 		y:      "Xd5c14bdf6bac81c27afc5429500ed750\nX25483503b557c606dad4f144d27ae10b\nX90bdbcdbb6ea7156068e3dcfb7459244\nX978f480a6e3cced51e297fbff9a506b7\n",
 		reason: "all lines are different, so diffing based on lines is pointless",
+	}, {
+		label:  label + "/StringifiedBytes",
+		x:      struct{ X []byte }{[]byte("hello, world!")},
+		y:      struct{ X []byte }{},
+		reason: "[]byte should be printed as text since it is printable text",
+	}, {
+		label:  label + "/NonStringifiedBytes",
+		x:      struct{ X []byte }{[]byte("\xde\xad\xbe\xef")},
+		y:      struct{ X []byte }{},
+		reason: "[]byte should not be printed as text since it is binary data",
+	}, {
+		label:  label + "/StringifiedNamedBytes",
+		x:      struct{ X MyBytes }{MyBytes("hello, world!")},
+		y:      struct{ X MyBytes }{},
+		reason: "MyBytes should be printed as text since it is printable text",
+	}, {
+		label:  label + "/NonStringifiedNamedBytes",
+		x:      struct{ X MyBytes }{MyBytes("\xde\xad\xbe\xef")},
+		y:      struct{ X MyBytes }{},
+		reason: "MyBytes should not be printed as text since it is binary data",
+	}, {
+		label: label + "/ShortJSON",
+		x: `{
+	"id": 1,
+	"foo": true,
+	"bar": true,
+}`,
+		y: `{
+	"id": 1434180,
+	"foo": true,
+	"bar": true,
+}`,
+		reason: "short multiline JSON should prefer triple-quoted string diff as it is more readable",
+	}, {
+		label: label + "/PointerToStringOrAny",
+		x: func() *string {
+			var v string = "hello"
+			return &v
+		}(),
+		y: func() *interface{} {
+			var v interface{} = "hello"
+			return &v
+		}(),
+		reason: "mismatched types between any and *any should print differently",
+	}, {
+		label: label + "/NamedPointer",
+		x: func() *string {
+			v := "hello"
+			return &v
+		}(),
+		y: func() PointerString {
+			v := "hello"
+			return &v
+		}(),
+		reason: "mismatched pointer types should print differently",
+	}, {
+		label:  label + "/MapStringAny",
+		x:      map[string]interface{}{"key": int(0)},
+		y:      map[string]interface{}{"key": uint(0)},
+		reason: "mismatched underlying value within interface",
+	}, {
+		label:  label + "/StructFieldAny",
+		x:      struct{ X interface{} }{int(0)},
+		y:      struct{ X interface{} }{uint(0)},
+		reason: "mismatched underlying value within interface",
+	}, {
+		label: label + "/SliceOfBytesText",
+		x: [][]byte{
+			[]byte("hello"), []byte("foo"), []byte("barbaz"), []byte("blahdieblah"),
+		},
+		y: [][]byte{
+			[]byte("foo"), []byte("foo"), []byte("barbaz"), []byte("added"), []byte("here"), []byte("hrmph"),
+		},
+		reason: "should print text byte slices as strings",
+	}, {
+		label: label + "/SliceOfBytesBinary",
+		x: [][]byte{
+			[]byte("\xde\xad\xbe\xef"), []byte("\xffoo"), []byte("barbaz"), []byte("blahdieblah"),
+		},
+		y: [][]byte{
+			[]byte("\xffoo"), []byte("foo"), []byte("barbaz"), []byte("added"), []byte("here"), []byte("hrmph\xff"),
+		},
+		reason: "should print text byte slices as strings except those with binary",
+	}, {
+		label: label + "/ManyEscapeCharacters",
+		x: `[
+	{"Base32": "NA======"},
+	{"Base32": "NBSQ===="},
+	{"Base32": "NBSWY==="},
+	{"Base32": "NBSWY3A="},
+	{"Base32": "NBSWY3DP"}
+]`,
+		y: `[
+	{"Base32": "NB======"},
+	{"Base32": "NBSQ===="},
+	{"Base32": "NBSWY==="},
+	{"Base32": "NBSWY3A="},
+	{"Base32": "NBSWY3DP"}
+]`,
+		reason: "should use line-based diffing since byte-based diffing is unreadable due to heavy amounts of escaping",
 	}}
 }
 
@@ -1410,14 +1513,6 @@ func embeddedTests() []test {
 		s.Private().SetPrivate(6 + i)
 		s.Public.Public = 7 + i
 		s.Public.SetPrivate(8 + i)
-		return s
-	}
-
-	// TODO(≥go1.10): Workaround for reflect bug (https://golang.org/issue/21122).
-	wantPanicNotGo110 := func(s string) string {
-		if !flags.AtLeastGo110 {
-			return ""
-		}
 		return s
 	}
 
@@ -1711,8 +1806,7 @@ func embeddedTests() []test {
 		label:     label + "/ParentStructG/PanicUnexported1",
 		x:         ts.ParentStructG{},
 		y:         ts.ParentStructG{},
-		wantPanic: wantPanicNotGo110("cannot handle unexported field"),
-		wantEqual: !flags.AtLeastGo110,
+		wantPanic: "cannot handle unexported field",
 		reason:    "ParentStructG has unexported fields",
 	}, {
 		label: label + "/ParentStructG/Ignored",
@@ -1802,8 +1896,7 @@ func embeddedTests() []test {
 		label:     label + "/ParentStructI/PanicUnexported1",
 		x:         ts.ParentStructI{},
 		y:         ts.ParentStructI{},
-		wantPanic: wantPanicNotGo110("cannot handle unexported field"),
-		wantEqual: !flags.AtLeastGo110,
+		wantPanic: "cannot handle unexported field",
 		reason:    "ParentStructI has unexported fields",
 	}, {
 		label: label + "/ParentStructI/Ignored1",

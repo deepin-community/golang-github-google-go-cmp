@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: go-cmp
 Source: https://github.com/google/go-cmp
+Upstream-Name: go-cmp
 
 Files: *
 Copyright: 2017 Google
