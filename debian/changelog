@@ -1,3 +1,30 @@
+golang-github-google-go-cmp (0.5.9-1) unstable; urgency=medium
+
+  * New upstream version 0.5.9
+  * debian/rules: Invoke dh with --builddirectory=_build
+  * Bump Standards-Version to 4.6.1 (no change)
+
+ -- Anthony Fok <foka@debian.org>  Mon, 26 Sep 2022 12:54:44 -0600
+
+golang-github-google-go-cmp (0.5.8-1) unstable; urgency=medium
+
+  * New upstream version 0.5.8
+  * Remove dependency on golang-golang-x-xerrors-dev as per upstream:
+    "Versions older than Go 1.13 are no longer in use.
+    Remove unnecessary dependencies."
+
+ -- Anthony Fok <foka@debian.org>  Sun, 05 Jun 2022 04:48:53 -0600
+
+golang-github-google-go-cmp (0.5.7-1) unstable; urgency=medium
+
+  * New upstream version 0.5.7
+  * Reorder fields in debian/control and debian/copyright
+    as would be generated in the next dh-make-golang release after 0.6.0-1
+  * Use dh-sequence-golang instead of dh-golang and --with=golang
+  * Mark library package with "Multi-Arch: foreign"
+
+ -- Anthony Fok <foka@debian.org>  Mon, 28 Feb 2022 19:15:12 -0700
+
 golang-github-google-go-cmp (0.5.6-1) unstable; urgency=medium
 
   * New upstream version 0.5.6
